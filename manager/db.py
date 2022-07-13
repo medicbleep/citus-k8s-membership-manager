@@ -1,3 +1,4 @@
+from shutil import ExecError
 import typing
 import psycopg2
 import retrying
@@ -38,14 +39,13 @@ class DBHandler:
         def connector() -> psycopg2._psycopg.connection:
             conn = psycopg2.connect(**self.pg_params, host=host)
             return conn
-
         try:
             connection = connector()
-            log.info("Connected to pg db on: %s", host)
+            log.info(f"Connected to pg db on: {host}")
             yield connection
         except Exception as e:
             log.info(e)
-            log.info("Error while connecting to %s", host)
+            log.info(f"Error while connecting to {host}")
         finally:
             connection.commit()
             connection.close()
@@ -65,7 +65,10 @@ class DBHandler:
         if not query_params:
             query_params = {}
         host = self.get_host_name(pod_name, service_name)
-        with self._connect_to_db(host) as conn:
-            with conn.cursor() as cur:
-                log.info("Executing query %s with %s", query, query_params)
-                cur.execute(query, query_params)
+        try:
+            with self._connect_to_db(host) as conn:
+                with conn.cursor() as cur:
+                    log.info(f"Executing query {query} with parameters {query_params}")
+                    cur.execute(query, query_params)
+        except Exception as err:
+            log.info(f"Got Error {err}")

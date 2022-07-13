@@ -157,7 +157,7 @@ class Manager:
         log.info("Registering new worker %s", pod_name)
         self.citus_worker_nodes.add(pod_name)
 
-        self.exec_on_masters("SELECT master_add_node(%(host)s, %(port)s)", pod_name)
+        self.exec_on_masters("SELECT citus_add_node(%(host)s, %(port)s)", pod_name)
         if len(self.citus_worker_nodes) >= self.conf.minimum_workers:
             if not self.init_provision:
                 self.config_monitor.provision_all_nodes()
@@ -169,11 +169,11 @@ class Manager:
         log.info("Worker terminated: %s", worker_name)
         self.citus_worker_nodes.discard(worker_name)
         self.exec_on_masters(
-            """DELETE FROM pg_dist_shard_placement WHERE nodename=%(host)s AND nodeport=%(port)s;
-            SELECT master_remove_node(%(host)s, %(port)s)""",
+            """SELECT citus_remove_node(%(host)s, %(port)s);""",
             worker_name,
         )
         log.info("Unregistered: %s", worker_name)
+
 
     def exec_on_masters(self, query: str, worker_name: str) -> None:
         for master in self.citus_master_nodes:
@@ -181,6 +181,7 @@ class Manager:
                 worker_name, self.conf.worker_service
             )
             query_params = {"host": worker_host, "port": self.conf.pg_port}
+            log.info(query_params)
             self.db_handler.execute_query(
                 master, self.conf.master_service, query, query_params
             )
